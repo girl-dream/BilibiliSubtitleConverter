@@ -1,0 +1,7 @@
+*.srt
+*.bcc
+text.*
+.venv
+.idea
+logs
+*.webp

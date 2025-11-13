@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="将SRT字幕文件转换为BCC字幕文件">
+    <title>SRT转换BCC</title>
+    <style>
+        * {
+            padding: 0;
+            box-sizing: content-box;
+        }
+
+        :root{
+            --blue: #00a1d6;
+        }
+
+        .main > h1 {
+            margin-top: 100px;
+            font-size: 3em;
+        }
+
+        input {
+            width: 100%;
+            height: 100%;
+            opacity: 0;
+        }
+
+        button {
+            width: 80px;
+            height: 40px;
+            line-height: 40px;
+            background: var(--blue);
+            border-radius: 6px;
+            text-align: center;
+            border: none;
+            cursor: pointer;
+            color: #fff;
+        }
+
+        .main {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .main > * {
+            margin: 15px;
+        }
+
+        .file {
+            border: 2px dashed #ccc;
+            border-radius: 5px;
+            width: 100px;
+            height: 100px;
+        }
+
+        .drag {
+            border-color: var(--blue);
+        }
+
+        .file:is(:hover, :active) {
+            border-color: var(--blue);
+        }
+
+        input {
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div class="main">
+        <h1>SRT转换BCC</h1>
+        <div class="file">
+            <input type="file" required accept=".srt">
+        </div>
+        <button>确定</button>
+    </div>
+    <script>
+        const input = document.querySelector('input')
+        const btn = document.querySelector('button')
+        const inputStyle = document.querySelector('.file')
+
+        // 支持拖拽样式
+        input.ondragenter = (e) => {
+            e.preventDefault()
+            inputStyle.classList.add('drag')
+        }
+
+        input.ondragleave = (e) => {
+            e.preventDefault()
+            inputStyle.classList.remove('drag')
+        }
+
+        input.onchange = (e)=>{
+            const file = e.target.files[0]
+             if (!file.type.startsWith("srt")) {
+                 alert('请选择SRT文件')
+                 input.value = null
+            }
+            inputStyle.classList.remove('drag')
+        }
+
+        btn.onclick = async (e) => {
+            e.preventDefault()
+            const file = input.files[0]
+            if (!file) {
+                alert('请选择SRT文件')
+                return
+            }
+            let [file_name] = file.name.split('.')
+            let bcc_data = {
+                "font_size": 0.4,
+                "font_color": "#FFFFFF",
+                "background_alpha": 0.5,
+                "background_color": "#9C27B0",
+                "stroke": "none",
+                "body": []
+            }
+            let list = (await file.text()).replaceAll('\r', '').split('\n')
+            let data = {}
+            for (let i = 0; i < list.length; i++) {
+                let index = i % 4
+                switch (index) {
+                    case 1:
+                        let [start_time,end_time] = list[i].split(' --> ')
+                        start_time  = srt_timestamp_to_seconds(start_time)
+                        end_time = srt_timestamp_to_seconds(end_time)
+                        data.from = start_time
+                        data.to = end_time
+                        data.location = 2
+                        break
+                    case 2:
+                        data.content = list[i]
+                        break
+                    case 3:
+                        bcc_data.body.push(data)
+                        data = {}
+                        break
+                }
+            }
+            const a = document.createElement('a')
+            const blob = new Blob([JSON.stringify(bcc_data, null, 2)], {
+             type: 'application/json'
+            })
+            a.href = URL.createObjectURL(blob)
+            a.download = `${file_name}.bcc`
+            a.click()
+            URL.revokeObjectURL(a.href)
+        }
+
+        function srt_timestamp_to_seconds(timestamp) {
+            const [hours, minutes, seconds_ms] = timestamp.split(':')
+            const [seconds, milliseconds] = seconds_ms.split(',')
+            return hours * 3600 + minutes * 60 + +seconds + milliseconds / 1000
+        }
+    </script>
+</body>
+</html>
